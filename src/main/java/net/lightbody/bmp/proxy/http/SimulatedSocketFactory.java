@@ -1,12 +1,11 @@
 package net.lightbody.bmp.proxy.http;
 
 import net.lightbody.bmp.proxy.util.Log;
+import org.apache.http.HttpHost;
 import org.apache.http.conn.ConnectTimeoutException;
 import org.apache.http.conn.HttpInetSocketAddress;
-import org.apache.http.conn.scheme.HostNameResolver;
-import org.apache.http.conn.scheme.SchemeSocketFactory;
-import org.apache.http.params.HttpConnectionParams;
-import org.apache.http.params.HttpParams;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.protocol.HttpContext;
 import org.java_bandwidthlimiter.StreamManager;
 
 import java.io.IOException;
@@ -21,17 +20,14 @@ import java.net.SocketAddress;
 import java.net.SocketTimeoutException;
 import java.util.Date;
 
-public class SimulatedSocketFactory implements SchemeSocketFactory {
+public class SimulatedSocketFactory implements ConnectionSocketFactory {
     private static Log LOG = new Log();
 
-    private HostNameResolver hostNameResolver;
     private StreamManager streamManager;
 
-    public SimulatedSocketFactory(HostNameResolver hostNameResolver, StreamManager streamManager) {
+    public SimulatedSocketFactory(StreamManager streamManager) {
         super();
-        assert hostNameResolver != null;
         assert streamManager != null;
-        this.hostNameResolver = hostNameResolver;
         this.streamManager = streamManager;
     }
 
@@ -57,7 +53,7 @@ public class SimulatedSocketFactory implements SchemeSocketFactory {
     }
 
     @Override
-    public Socket createSocket(HttpParams httpParams) {
+    public Socket createSocket(HttpContext context) {
         //Ignoring httpParams
         //apparently it's only useful to pass through a SOCKS server
         //see: http://svn.apache.org/repos/asf/httpcomponents/httpclient/trunk/httpclient/src/examples/org/apache/http/examples/client/ClientExecuteSOCKS.java
@@ -149,13 +145,13 @@ public class SimulatedSocketFactory implements SchemeSocketFactory {
     }
 
     @Override
-    public Socket connectSocket(Socket sock, InetSocketAddress remoteAddress, InetSocketAddress localAddress, HttpParams params) throws IOException {
+    public Socket connectSocket(int connectTimeout, Socket sock, HttpHost host, InetSocketAddress remoteAddress, InetSocketAddress localAddress, HttpContext context) throws IOException {
         if (remoteAddress == null) {
             throw new IllegalArgumentException("Target host may not be null.");
         }
 
-        if (params == null) {
-            throw new IllegalArgumentException("Parameters may not be null.");
+        if (context == null) {
+            throw new IllegalArgumentException("HttpContext may not be null.");
         }
 
         if (sock == null) {
@@ -174,14 +170,13 @@ public class SimulatedSocketFactory implements SchemeSocketFactory {
         }
 
         InetSocketAddress remoteAddr = remoteAddress;
-        if (this.hostNameResolver != null) {
-            remoteAddr = new InetSocketAddress(this.hostNameResolver.resolve(hostName), remoteAddress.getPort());
-        }
+//        if (this.hostNameResolver != null) {
+//            remoteAddr = new InetSocketAddress(this.hostNameResolver.resolve(hostName), remoteAddress.getPort());
+//        }
 
-        int timeout = HttpConnectionParams.getConnectionTimeout(params);
 
         try {
-            sock.connect(remoteAddr, timeout);
+            sock.connect(remoteAddr, connectTimeout);
         } catch (SocketTimeoutException ex) {
             throw new ConnectTimeoutException("Connect to " + remoteAddress + " timed out");
         }
@@ -189,26 +184,7 @@ public class SimulatedSocketFactory implements SchemeSocketFactory {
         return sock;
     }
 
-    /**
-     * Checks whether a socket connection is secure. This factory creates plain socket connections which are not
-     * considered secure.
-     *
-     * @param sock the connected socket
-     * @return <code>false</code>
-     * @throws IllegalArgumentException if the argument is invalid
-     */
-    @Override
-    public final boolean isSecure(Socket sock)
-            throws IllegalArgumentException {
 
-        if (sock == null) {
-            throw new IllegalArgumentException("Socket may not be null.");
-        }
-        // This check is performed last since it calls a method implemented
-        // by the argument object. getClass() is final in java.lang.Object.
-        if (sock.isClosed()) {
-            throw new IllegalArgumentException("Socket is closed.");
-        }
-        return false;
-    }
+
+
 }

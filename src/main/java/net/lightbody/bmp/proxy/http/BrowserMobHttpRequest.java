@@ -20,6 +20,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.UnsupportedCharsetException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -74,10 +75,10 @@ public class BrowserMobHttpRequest {
     public void setRequestBody(String body, String contentType, String charSet) {
         try {
             stringEntity = new StringEntity(body, charSet);
-        } catch (UnsupportedEncodingException e) {
+        } catch (UnsupportedCharsetException e) {
             try {
                 stringEntity = new StringEntity(body, (String) null);
-            } catch (UnsupportedEncodingException e1) {
+            } catch (UnsupportedCharsetException e1) {
                 // this won't happen
             }
         }

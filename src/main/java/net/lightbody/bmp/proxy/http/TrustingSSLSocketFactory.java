@@ -1,9 +1,8 @@
 package net.lightbody.bmp.proxy.http;
 
-import org.apache.http.conn.ConnectTimeoutException;
-import org.apache.http.conn.scheme.HostNameResolver;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.params.HttpParams;
+import org.apache.http.HttpHost;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.protocol.HttpContext;
 import org.java_bandwidthlimiter.StreamManager;
 
 import javax.net.ssl.SSLContext;
@@ -11,7 +10,6 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.security.KeyManagementException;
@@ -19,7 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
-public class TrustingSSLSocketFactory extends SSLSocketFactory {
+public class TrustingSSLSocketFactory extends SSLConnectionSocketFactory {
 
     public enum SSLAlgorithm {
         SSLv3,
@@ -63,9 +61,8 @@ public class TrustingSSLSocketFactory extends SSLSocketFactory {
         }
     }
 
-    public TrustingSSLSocketFactory(HostNameResolver nameResolver, StreamManager streamManager) {
-        super(sslContext, nameResolver);
-        assert nameResolver != null;
+    public TrustingSSLSocketFactory(StreamManager streamManager) {
+        super(sslContext, new AllowAllHostnameVerifier());
         assert streamManager != null;
         this.streamManager = streamManager;
     }
@@ -78,18 +75,12 @@ public class TrustingSSLSocketFactory extends SSLSocketFactory {
         return new SimulatedSSLSocket(socket, streamManager);
     }
 
-    @SuppressWarnings("deprecation")
-    @Override
-    public Socket createSocket() throws java.io.IOException {
-        SSLSocket sslSocket = (SSLSocket) super.createSocket();
-        return createSimulatedSocket(sslSocket);
-    }
 
-    @SuppressWarnings("deprecation")
     @Override
-    public Socket connectSocket(Socket socket, String host, int port, InetAddress localAddress, int localPort, HttpParams params)
-            throws java.io.IOException, java.net.UnknownHostException, org.apache.http.conn.ConnectTimeoutException {
-        SSLSocket sslSocket = (SSLSocket) super.connectSocket(socket, host, port, localAddress, localPort, params);
+    public Socket connectSocket(int connectTimeout, Socket socket, HttpHost host, InetSocketAddress remoteAddress,
+                                InetSocketAddress localAddress, HttpContext context)
+            throws java.io.IOException {
+        SSLSocket sslSocket = (SSLSocket) super.connectSocket( connectTimeout, socket, host, remoteAddress, localAddress, context);
         if( sslSocket instanceof SimulatedSSLSocket ) {
             return sslSocket;
         } else {
@@ -98,20 +89,13 @@ public class TrustingSSLSocketFactory extends SSLSocketFactory {
     }
 
     @Override
-    public Socket createSocket(org.apache.http.params.HttpParams params) throws java.io.IOException {
-        SSLSocket sslSocket = (SSLSocket) super.createSocket(params);
-        return createSimulatedSocket(sslSocket);
+    public Socket createSocket(HttpContext context) throws IOException {
+        Socket socket = super.createSocket(context);
+        if (socket instanceof SSLSocket) {
+            return createSimulatedSocket((SSLSocket) socket);
+        }
+        return socket;
+
     }
 
-    @Override
-    public Socket connectSocket(Socket socket, InetSocketAddress remoteAddress, InetSocketAddress localAddress, HttpParams params)
-            throws IOException, ConnectTimeoutException {
-        SSLSocket sslSocket = (SSLSocket) super.connectSocket(socket, remoteAddress, localAddress, params);
-        if( sslSocket instanceof SimulatedSSLSocket ) {
-            return sslSocket;
-        } else {
-            //not sure this is needed
-            return createSimulatedSocket(sslSocket);
-        }
-    }
 }
